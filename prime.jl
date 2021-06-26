@@ -33,7 +33,7 @@ include("RoeFlux2d.jl")
 include("AUSMflux2d.jl"); #AUSM+ inviscid flux calculation 
 include("utilsFVM2dp.jl"); #FVM utililities
 
-include("init2d.jl");
+include("initfields2d.jl");
 
 
 
@@ -58,15 +58,10 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	
 	## init primitive variables 
 	println("set initial and boundary conditions ...");
-	testfields2d = createFields2d(testMesh, thermo);
-	
-	
+	testfields2d = createFields2d_shared(testMesh, thermo);
 	
 	
 	## init conservative variables 
-	## UconsCellsOld = zeros(Float64,testMesh.nCells,4);
-	## UconsCellsNew = zeros(Float64,testMesh.nCells,4);
-	##Delta = zeros(Float64,testMesh.nCells,4);
 	
 	
 	UconsCellsOldX = SharedArray{Float64}(testMesh.nCells,4);
@@ -109,19 +104,6 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	# display(Z)
 	
 	
-	UphysCellsX = SharedArray{Float64}(testMesh.nCells,4);
-	for i = 1:testMesh.nCells
-		UphysCellsX[i,1] = testfields2d.densityCells[i];
-		UphysCellsX[i,2] = testfields2d.UxCells[i];
-		UphysCellsX[i,3] = testfields2d.UyCells[i];
-		UphysCellsX[i,4] = testfields2d.pressureCells[i];
-	end
-	
-	
-	
-	#UconsCellsOldX = phs2dcns2dcells(testfields2d, thermo.Gamma); #old vector
-	#UconsCellsNewX = deepcopy(UconsCellsOldX); #new  vector 
-	
 	phs2dcns2dcellsSA(UconsCellsOldX,testfields2d, thermo.Gamma);	
 	phs2dcns2dcellsSA(UconsCellsNewX,testfields2d, thermo.Gamma);	
 		
@@ -140,13 +122,7 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	@everywhere pControlsX = $pControls;
 	@everywhere outputX = $output;
 	
-	# @everywhere timeVector = [];
-	# @everywhere residualsVector1 = []; 
-	# @everywhere residualsVector2 = []; 
-	# @everywhere residualsVector3 = []; 
-	# @everywhere residualsVector4 = []; 
-	# @everywhere residualsVectorMax = ones(Float64,4);
-	# @everywhere convergenceCriteria= [1e-5;1e-5;1e-5;1e-5;];
+
 
 	timeVector = [];
 	residualsVector1 = []; 
@@ -175,89 +151,36 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 				beginCell::Int64 = cellsThreadsX[p-1,1];
 				endCell::Int64 = cellsThreadsX[p-1,2];
 				#println("worker: ",p,"\tbegin cell: ",beginCell,"\tend cell: ", endCell);
-				# # println("worker: ",p,"\ttermoX.gamma: ", thermoX.Gamma);
-				# # println("worker: ",p,"\ttestMeshX: ", testMeshX.nCells, "\t", testMeshX.nNodes );
-				# # println("worker: ",p,"\ttestfields2dX: ", testfields2dX.densityCells[299] );
 				
-				#inviscidFlux(beginCell, endCell, 1.0, testMeshX, testfields2dX, thermoX, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, iFLUX); 
-				
-				 inviscidFluxMM(beginCell, endCell, 1.0, 
-						mesh_connectivity,cell_edges_length,cell_edges_Nx,cell_edges_Ny,cell_stiffness, Z, 
-						thermoX.Gamma, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, UphysCellsX, iFLUXdist); 
+										
+				inviscidFluxMM22(beginCell, endCell, 1.0, 
+						mesh_connectivity,cell_edges_length,cell_edges_Nx,cell_edges_Ny,cell_stiffness, Z, testfields2dX,  
+						thermoX.Gamma, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, iFLUXdist); 
 
-					 
 					
 			end
 			
-			#@everywhere finalize(inviscidFlux);			
+			@everywhere finalize(inviscidFlux);			
+			
+			
+			@sync @distributed for p in workers()	
+	
+				beginCell::Int64 = cellsThreadsX[p-1,1];
+				endCell::Int64 = cellsThreadsX[p-1,2];
+				#println("worker: ",p,"\tbegin cell: ",beginCell,"\tend cell: ", endCell);
+														
+				updateVariablesMM22(beginCell, endCell, thermoX.Gamma,  UconsCellsNewX, UconsCellsOldX, DeltaX, testfields2dX);
+		
+			end
+			
+			@everywhere finalize(updateVariablesMM22);	
 					
 			#inviscidFlux(1, testMeshX.nCells, 1.0, testMeshX, testfields2dX, thermoX, solControlsX, dynControlsX, iFLUX); 			
 			#display(iFLUX-iFLUXdist)
 			
-			
-			
-			for i=1:testMeshX.nCells
-			
-				# DeltaX[i,1] = UconsCellsOldX[i,1]  - iFLUX[i,1];
-				# DeltaX[i,2] = UconsCellsOldX[i,2]  - iFLUX[i,2];
-				# DeltaX[i,3] = UconsCellsOldX[i,3]  - iFLUX[i,3];
-				# DeltaX[i,4] = UconsCellsOldX[i,4]  - iFLUX[i,4];
-
-				# DeltaX[i,1] = UconsCellsOldX[i,1]  - iFLUXdist[i,1];
-				# DeltaX[i,2] = UconsCellsOldX[i,2]  - iFLUXdist[i,2];
-				# DeltaX[i,3] = UconsCellsOldX[i,3]  - iFLUXdist[i,3];
-				# DeltaX[i,4] = UconsCellsOldX[i,4]  - iFLUXdist[i,4];
-
-							
-				# UconsCellsNewX[i,1] = DeltaX[i,1];
-				# UconsCellsNewX[i,2] = DeltaX[i,2];
-				# UconsCellsNewX[i,3] = DeltaX[i,3];
-				# UconsCellsNewX[i,4] = DeltaX[i,4];
-				
-				
-				# UphysCellsX[i,1]  = UconsCellsNewX[i,1];
-				# UphysCellsX[i,2]  = UconsCellsNewX[i,2]/UconsCellsNewX[i,1];
-				# UphysCellsX[i,3]  = UconsCellsNewX[i,3]/UconsCellsNewX[i,1];
-				# UphysCellsX[i,4]  = (thermoX.Gamma-1.0)*( UconsCellsNewX[i,4] - 0.5*( UconsCellsNewX[i,2]*UconsCellsNewX[i,2] + UconsCellsNewX[i,3]*UconsCellsNewX[i,3] )/UconsCellsNewX[i,1] );
-	
-				testfields2dX.densityCells[i] = UconsCellsNewX[i,1];
-				testfields2dX.UxCells[i] 	  = UconsCellsNewX[i,2]/UconsCellsNewX[i,1];
-				testfields2dX.UyCells[i] 	  = UconsCellsNewX[i,3]/UconsCellsNewX[i,1];
-				testfields2dX.pressureCells[i] = (thermoX.Gamma-1.0)*( UconsCellsNewX[i,4] - 0.5*( UconsCellsNewX[i,2]*UconsCellsNewX[i,2] + UconsCellsNewX[i,3]*UconsCellsNewX[i,3] )/UconsCellsNewX[i,1] );
-
-				testfields2dX.aSoundCells[i] = sqrt( thermoX.Gamma * testfields2dX.pressureCells[i]/testfields2dX.densityCells[i] );
-				testfields2dX.VMAXCells[i]  = sqrt( testfields2dX.UxCells[i]*testfields2dX.UxCells[i] + testfields2dX.UyCells[i]*testfields2dX.UyCells[i] ) + testfields2dX.aSoundCells[i];
 		
-				DeltaX[i,1] = UconsCellsNewX[i,1] - UconsCellsOldX[i,1];
-				DeltaX[i,2] = UconsCellsNewX[i,2] - UconsCellsOldX[i,2];
-				DeltaX[i,3] = UconsCellsNewX[i,3] - UconsCellsOldX[i,3];
-				DeltaX[i,4] = UconsCellsNewX[i,4] - UconsCellsOldX[i,4];
-
-		
-				UconsCellsOldX[i,1] = UconsCellsNewX[i,1];
-				UconsCellsOldX[i,2] = UconsCellsNewX[i,2];
-				UconsCellsOldX[i,3] = UconsCellsNewX[i,3];
-				UconsCellsOldX[i,4] = UconsCellsNewX[i,4];
-				
-				UphysCellsX[i,1] = testfields2dX.densityCells[i];
-				UphysCellsX[i,2] = testfields2dX.UxCells[i];
-				UphysCellsX[i,3] = testfields2dX.UyCells[i];
-				UphysCellsX[i,4] = testfields2dX.pressureCells[i];
-				
-		
-			end
-	
-			#UconsCellsOldX = deepcopy(UconsCellsNewX);
+			cells2nodesSolutionReconstructionWithStencilsImplicitSA!(testMeshX, testfields2dX); 
 			
-			# display(UconsCellsNewX)
-			# display(UconsCellsOldX)
-			# display(iFLUX)
-
-		
-	
-			cells2nodesSolutionReconstructionWithStencilsImplicit!(testMeshX, testfields2dX); 
-			
-		
 	
 			(dynControlsX.rhoMax,id) = findmax(testfields2dX.densityCells);
 			(dynControlsX.rhoMin,id) = findmin(testfields2dX.densityCells);
@@ -272,7 +195,7 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 				residualsVector1,residualsVector2,residualsVector3,residualsVector4, residualsVectorMax,  
 				convergenceCriteria, dynControlsX);
 			
-			updateOutput(timeVector,residualsVector1,residualsVector2,residualsVector3,residualsVector4, residualsVectorMax, 
+			updateOutputSA(timeVector,residualsVector1,residualsVector2,residualsVector3,residualsVector4, residualsVectorMax, 
 				testMeshX, testfields2dX, solControlsX, outputX, dynControlsX);
 	
 			

@@ -1,3 +1,27 @@
+
+@everywhere mutable struct fields2d_shared
+	
+	## even more slowly !!!
+	##UphsCells::Array{Float64,2} 
+	##UphsNodes::Array{Float64,2}
+	
+	densityCells::SharedArray{Float64,1}
+	UxCells::SharedArray{Float64,1}
+	UyCells::SharedArray{Float64,1}
+	pressureCells::SharedArray{Float64,1}
+	aSoundCells::SharedArray{Float64,1}
+	VMAXCells::SharedArray{Float64,1}
+
+	densityNodes::SharedArray{Float64,1}
+	UxNodes::SharedArray{Float64,1}
+	UyNodes::SharedArray{Float64,1}
+	pressureNodes::SharedArray{Float64,1}
+	
+	#UconsCellsOld::Array{Float64,2}
+	#UconsCellsNew::Array{Float64,2}
+
+end
+
 @everywhere mutable struct fields2d	
 	
 	## even more slowly !!!
