@@ -60,6 +60,8 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	println("set initial and boundary conditions ...");
 	testfields2d = createFields2d_shared(testMesh, thermo);
 	
+	println("nCells:\t", testMesh.nCells);
+	println("nNodes:\t", testMesh.nNodes);
 	
 	## init conservative variables 
 	
@@ -71,7 +73,7 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	iFLUXdist  = SharedArray{Float64}(testMesh.nCells,4);
 	
 	n = size(testMesh.mesh_connectivity,2);
-	mesh_connectivity = SharedArray{Float64}(testMesh.nCells,n);
+	mesh_connectivity = SharedArray{Int64}(testMesh.nCells,n);
 	
 	n = size(testMesh.cell_edges_length,2);
 	cell_edges_length = SharedArray{Float64}(testMesh.nCells,n);
@@ -81,10 +83,10 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	cell_edges_Ny = SharedArray{Float64}(testMesh.nCells,n);
 	
 	n = size(testMesh.cell_stiffness,2);
-	cell_stiffness = SharedArray{Float64}(testMesh.nCells,n);
+	cell_stiffness = SharedArray{Int64}(testMesh.nCells,n);
 	
-	n = size(testMesh.Z,2);
-	Z = SharedArray{Float64}(testMesh.nCells,n);
+	#n = size(testMesh.Z,2);
+	Z = SharedArray{Float64}(testMesh.nCells);
 	
 	for i = 1:testMesh.nCells
 	
@@ -246,8 +248,9 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 end
 
 
-
-@time godunov2dthreads("testTriMesh2d.bson",4); 
+#@time godunov2dthreads("testMixedMesh2d.bson",4); 
+#@time godunov2dthreads("testTriMesh2d.bson",4); 
+@time godunov2dthreads("testQuadMesh2d.bson",4); 
 
 
 #@time godunov2d("testQuadMesh2d.bson"); 

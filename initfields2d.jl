@@ -384,10 +384,10 @@ end
 	aSoundCells = SharedArray{Float64}(testMesh.nCells); #speed of sound
 	VMAXCells = SharedArray{Float64}(testMesh.nCells); #max speed in domain
 	
-	densityNodes = SharedArray{Float64}(testMesh.nCells); 
-	UxNodes = SharedArray{Float64}(testMesh.nCells); 
-	UyNodes = SharedArray{Float64}(testMesh.nCells); 
-	pressureNodes = SharedArray{Float64}(testMesh.nCells); 
+	densityNodes = SharedArray{Float64}(testMesh.nNodes); 
+	UxNodes = SharedArray{Float64}(testMesh.nNodes); 
+	UyNodes = SharedArray{Float64}(testMesh.nNodes); 
+	pressureNodes = SharedArray{Float64}(testMesh.nNodes); 
 
 	for i=1:testMesh.nCells
 

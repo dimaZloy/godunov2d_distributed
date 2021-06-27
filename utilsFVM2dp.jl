@@ -422,8 +422,8 @@ end
 
 
 @everywhere function inviscidFluxMM22( beginCell::Int64,endCell::Int64, bettaKJ::Float64, 
-			mesh_connectivity::SharedArray{Float64,2},cell_edges_length::SharedArray{Float64,2},cell_edges_Nx::SharedArray{Float64,2},cell_edges_Ny::SharedArray{Float64,2},
-			cell_stiffness::SharedArray{Float64,2}, Z::SharedArray{Float64,2}, testFields::fields2d_shared, 
+			mesh_connectivity::SharedArray{Int64,2},cell_edges_length::SharedArray{Float64,2},cell_edges_Nx::SharedArray{Float64,2},cell_edges_Ny::SharedArray{Float64,2},
+			cell_stiffness::SharedArray{Int64,2}, Z::SharedArray{Float64,1}, testFields::fields2d_shared, 
 			gamma::Float64, solControls::CONTROLS, dynControls::DYNAMICCONTROLS, 
 			UconsCellsNew::SharedArray{Float64,2}, UconsCellsOld::SharedArray{Float64,2},  fluxX::SharedArray{Float64,2})
 
