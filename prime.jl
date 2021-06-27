@@ -26,7 +26,7 @@ end
 @everywhere using BSON: @save
 @everywhere using SharedArrays;
 
-include("primeObjects.jl");
+include("D:/projects/mesh2d/primeObjects.jl");
 include("thermo.jl"); #setup thermodynamics
 include("utilsIO.jl");
 include("RoeFlux2d.jl")
@@ -34,6 +34,9 @@ include("AUSMflux2d.jl"); #AUSM+ inviscid flux calculation
 include("utilsFVM2dp.jl"); #FVM utililities
 
 include("initfields2d.jl");
+
+
+
 
 
 
@@ -99,6 +102,14 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	
 	end
 	
+	testMeshDistr = mesh2d_shared(
+		mesh_connectivity,
+		Z,
+		cell_edges_Nx,
+		cell_edges_Ny,
+		cell_edges_length,
+		cell_stiffness);
+	
 	# display(mesh_connectivity)
 	# display(cell_edges_length)
 	# display(cell_edges_Nx)
@@ -113,7 +124,7 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 	println(output.header);
 	
 
-	
+	@everywhere testMeshDistrX = $testMeshDistr; 
 	@everywhere testMeshX = $testMesh; 
 	@everywhere thermoX   = $thermo;
 	@everywhere cellsThreadsX = $cellsThreads;
@@ -155,14 +166,17 @@ function godunov2dthreads(pname::String, numThreads::Int64)
 				#println("worker: ",p,"\tbegin cell: ",beginCell,"\tend cell: ", endCell);
 				
 										
-				inviscidFluxMM22(beginCell, endCell, 1.0, 
-						mesh_connectivity,cell_edges_length,cell_edges_Nx,cell_edges_Ny,cell_stiffness, Z, testfields2dX,  
-						thermoX.Gamma, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, iFLUXdist); 
+				# inviscidFluxMM22(beginCell, endCell, 1.0, 
+						# mesh_connectivity,cell_edges_length,cell_edges_Nx,cell_edges_Ny,cell_stiffness, Z, testfields2dX,  
+						# thermoX.Gamma, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, iFLUXdist); 
 
+				inviscidFluxMM44(beginCell, endCell, 1.0,  testMeshDistrX, testfields2dX,  
+						thermoX.Gamma, solControlsX, dynControlsX, UconsCellsNewX, UconsCellsOldX, iFLUXdist); 
 					
 			end
 			
-			@everywhere finalize(inviscidFlux);			
+			#@everywhere finalize(inviscidFluxMM22);		
+			@everywhere finalize(inviscidFluxMM44);				
 			
 			
 			@sync @distributed for p in workers()	
@@ -249,8 +263,8 @@ end
 
 
 #@time godunov2dthreads("testMixedMesh2d.bson",4); 
-#@time godunov2dthreads("testTriMesh2d.bson",4); 
-@time godunov2dthreads("testQuadMesh2d.bson",4); 
+@time godunov2dthreads("testTriMesh2d.bson",4); 
+#@time godunov2dthreads("testQuadMesh2d.bson",4); 
 
 
 #@time godunov2d("testQuadMesh2d.bson"); 

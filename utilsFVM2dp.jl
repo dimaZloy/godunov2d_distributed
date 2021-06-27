@@ -524,3 +524,104 @@ end
 end
 
 
+@everywhere function inviscidFluxMM44( beginCell::Int64,endCell::Int64, bettaKJ::Float64, 
+			testMeshDistr::mesh2d_shared, testFields::fields2d_shared, 
+			gamma::Float64, solControls::CONTROLS, dynControls::DYNAMICCONTROLS, 
+			UconsCellsNew::SharedArray{Float64,2}, UconsCellsOld::SharedArray{Float64,2},  fluxX::SharedArray{Float64,2})
+
+
+	
+	uLeftp = zeros(Float64,4);
+	uRightp = zeros(Float64,4);	
+
+	uConsLeftp = zeros(Float64,4);
+	uConsRightp = zeros(Float64,4);	
+
+	N = size(fluxX,1);
+	
+	for i = beginCell:endCell
+	
+		ck::Int64 = testMeshDistr.mesh_connectivity[i,3]; 
+
+		uLeftp[1] = testFields.densityCells[i];
+		uLeftp[2] = testFields.UxCells[i];
+		uLeftp[3] = testFields.UyCells[i];
+		uLeftp[4] = testFields.pressureCells[i];
+		
+		uRightp[1] = testFields.densityCells[i];
+		uRightp[2] = testFields.UxCells[i];	
+		uRightp[3] = testFields.UyCells[i];	
+		uRightp[4] = testFields.pressureCells[i];
+		
+		FLUXES = zeros(Float64,4);
+		
+		
+			for k =1:ck
+					
+				side::Float64 = testMeshDistr.cell_edges_length[i,k];
+				nx::Float64   = testMeshDistr.cell_edges_Nx[i,k];
+				ny::Float64   = testMeshDistr.cell_edges_Ny[i,k];
+
+				ek::Int64 =  testMeshDistr.cell_stiffness[i,k]; 
+				edge_flux = zeros(Float64,4);
+		
+
+				if (ek>=1 && ek<=N ) 
+					
+					uRightp[1] = testFields.densityCells[ek];
+					uRightp[2] = testFields.UxCells[ek];
+					uRightp[3] = testFields.UyCells[ek];
+					uRightp[4] = testFields.pressureCells[ek];
+					
+					
+				else
+					uRightp = ComputeUPhysFromBoundaries(i,k, ek, uRightp, nx,ny);
+				
+					#uRightp = ComputeUPhysFromBoundaries(i,k, ek, uLeftp, nx,ny);
+				end 
+				
+			
+				
+				edge_flux = RoeFlux2d(uRightp,uLeftp, nx,ny,side,gamma);
+				#edge_flux = AUSMplusFlux2d(uRightp,uLeftp,nx,ny,side,thermo.Gamma);			
+				#edge_flux = RiemannFlux2d(uRightp,uLeftp,nx,ny,side,thermo.Gamma); ## to be test!!!			
+				
+			
+
+				FLUXES[1] = FLUXES[1] + edge_flux[1];
+				FLUXES[2] = FLUXES[2] + edge_flux[2];
+				FLUXES[3] = FLUXES[3] + edge_flux[3];
+				FLUXES[4] = FLUXES[4] + edge_flux[4];
+				
+				#FLUXES += edge_flux;
+				
+			end # K for neib cells 
+			
+			#display(FLUXES)
+		
+			if (solControls.timeStepMethod == 1)
+			
+				fluxX[i,1] = FLUXES[1]*bettaKJ*testMeshDistr.Z[i]*dynControls.tau;
+				fluxX[i,2] = FLUXES[2]*bettaKJ*testMeshDistr.Z[i]*dynControls.tau;
+				fluxX[i,3] = FLUXES[3]*bettaKJ*testMeshDistr.Z[i]*dynControls.tau;
+				fluxX[i,4] = FLUXES[4]*bettaKJ*testMeshDistr.Z[i]*dynControls.tau;
+			
+			
+			else
+				fluxX[i,1] = FLUXES[1]*bettaKJ*testMeshDistr.Z[i]*solControls.dt;
+				fluxX[i,2] = FLUXES[2]*bettaKJ*testMeshDistr.Z[i]*solControls.dt;
+				fluxX[i,3] = FLUXES[3]*bettaKJ*testMeshDistr.Z[i]*solControls.dt;
+				fluxX[i,4] = FLUXES[4]*bettaKJ*testMeshDistr.Z[i]*solControls.dt;
+			end
+			
+			UconsCellsNew[i,1] = UconsCellsOld[i,1] - fluxX[i,1];
+			UconsCellsNew[i,2] = UconsCellsOld[i,2] - fluxX[i,2];
+			UconsCellsNew[i,3] = UconsCellsOld[i,3] - fluxX[i,3];
+			UconsCellsNew[i,4] = UconsCellsOld[i,4] - fluxX[i,4];
+
+		
+	end	#  i for loop cells 
+
+
+end
+
